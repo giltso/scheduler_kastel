@@ -1,6 +1,6 @@
 import { convexQuery } from "@convex-dev/react-query";
 import { useMutation } from "convex/react";
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { useSuspenseQuery, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { Authenticated } from "convex/react";
 import { CheckCircle, XCircle, Clock, User, Calendar } from "lucide-react";
@@ -59,7 +59,27 @@ function ApprovalsApp() {
 
 function UserApprovalsView({ currentUser }: { currentUser: any }) {
   const pendingEventsQuery = convexQuery(api.events.getUserPendingEvents, {});
-  const { data: pendingEvents } = useSuspenseQuery(pendingEventsQuery);
+  const { data: pendingEvents, error } = useQuery(pendingEventsQuery);
+
+  if (error) {
+    return (
+      <div className="text-center py-12">
+        <h2 className="text-xl font-semibold mb-2">Approvals Feature Loading</h2>
+        <p className="text-base-content/70">
+          The approvals feature is being deployed. Please refresh the page in a moment.
+        </p>
+      </div>
+    );
+  }
+
+  if (!pendingEvents) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="loading loading-spinner loading-lg"></div>
+        <span className="ml-2">Loading your pending events...</span>
+      </div>
+    );
+  }
 
   if (pendingEvents.length === 0) {
     return (
