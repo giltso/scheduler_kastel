@@ -7,5 +7,21 @@ export default defineSchema({
   users: defineTable({
     clerkId: v.string(),
     name: v.string(),
+    email: v.string(),
+    role: v.union(v.literal("default"), v.literal("manager")),
   }).index("by_clerkId", ["clerkId"]),
+  
+  events: defineTable({
+    title: v.string(),
+    description: v.string(),
+    startTime: v.number(),
+    endTime: v.number(),
+    creatorId: v.id("users"),
+    assignedUserId: v.id("users"),
+    status: v.union(v.literal("pending"), v.literal("approved")),
+  })
+    .index("by_creator", ["creatorId"])
+    .index("by_assignedUser", ["assignedUserId"])
+    .index("by_status", ["status"])
+    .index("by_startTime", ["startTime"]),
 });
