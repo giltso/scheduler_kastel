@@ -35,9 +35,13 @@ export const Route = createRootRouteWithContext<{
 function RootComponent() {
   const { queryClient, convexClient: convex } = Route.useRouteContext();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const [theme, setTheme] = useState(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('theme') || 'dark';
+      const savedTheme = localStorage.getItem('theme') || 'dark';
+      // Set the theme immediately on load
+      document.documentElement.setAttribute('data-theme', savedTheme);
+      return savedTheme;
     }
     return 'dark';
   });
@@ -54,8 +58,18 @@ function RootComponent() {
   };
 
   useEffect(() => {
+    setMounted(true);
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
+
+  // Prevent hydration mismatch by showing a fallback until mounted
+  if (!mounted) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="loading loading-spinner loading-lg"></div>
+      </div>
+    );
+  }
 
   return (
     <ClerkProvider
@@ -119,7 +133,7 @@ function RootComponent() {
                     </div>
                   </header>
                   {/* Main content */}
-                  <main className="flex-1 p-4 prose prose-invert max-w-none">
+                  <main className={`flex-1 p-4 prose max-w-none ${theme === 'dark' ? 'prose-invert' : ''}`}>
                     <Outlet />
                   </main>
                   <footer className="footer footer-center p-4 text-base-content">
@@ -192,7 +206,7 @@ function RootComponent() {
                   </div>
                 </div>
               </header>
-              <main className="flex-1 container mx-auto p-4 prose prose-invert max-w-none">
+              <main className={`flex-1 container mx-auto p-4 prose max-w-none ${theme === 'dark' ? 'prose-invert' : ''}`}>
                 <Outlet />
               </main>
               <footer className="footer footer-center p-4 text-base-content">
