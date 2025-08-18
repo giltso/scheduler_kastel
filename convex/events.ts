@@ -67,25 +67,32 @@ export const createEvent = mutation({
         repeatDays,
       });
 
-      // Generate recurring instances for the next 12 weeks
-      const duration = endTime - startTime;
-      const parentEvent = await ctx.db.get(parentEventId);
-      const instances = [];
+      // Generate recurring instances within the specified period
+      const startDate = new Date(startTime);
+      const endDate = new Date(endTime);
+      const eventStartTime = startDate.getTime();
+      const eventEndTime = endDate.getTime();
       
-      for (let weekOffset = 0; weekOffset < 12; weekOffset++) {
-        for (const dayOfWeek of repeatDays!) {
-          // Calculate the start time for this instance
-          const eventDate = new Date(startTime);
-          const currentDayOfWeek = eventDate.getDay();
+      // Calculate the duration of the original event (time between start and end on the same day)
+      const sameDay = new Date(startTime);
+      sameDay.setHours(endDate.getHours(), endDate.getMinutes(), endDate.getSeconds(), endDate.getMilliseconds());
+      const eventDuration = sameDay.getTime() - eventStartTime;
+      
+      const instances = [];
+      let currentDate = new Date(startDate);
+      
+      // Iterate through each day in the repeat period
+      while (currentDate <= endDate) {
+        const dayOfWeek = currentDate.getDay();
+        
+        // Check if this day is in the repeat days
+        if (repeatDays!.includes(dayOfWeek)) {
+          // Create an instance for this day with the same time as the original
+          const instanceDate = new Date(currentDate);
+          instanceDate.setHours(startDate.getHours(), startDate.getMinutes(), startDate.getSeconds(), startDate.getMilliseconds());
           
-          // Calculate days to add to get to the target day of week
-          let daysToAdd = dayOfWeek - currentDayOfWeek;
-          if (daysToAdd < 0) daysToAdd += 7; // Next week if we've passed this day
-          
-          daysToAdd += (weekOffset * 7); // Add weeks
-          
-          const instanceStartTime = startTime + (daysToAdd * 24 * 60 * 60 * 1000);
-          const instanceEndTime = instanceStartTime + duration;
+          const instanceStartTime = instanceDate.getTime();
+          const instanceEndTime = instanceStartTime + eventDuration;
           
           // Create the recurring instance
           const instanceId = await ctx.db.insert("events", {
@@ -102,9 +109,12 @@ export const createEvent = mutation({
           
           instances.push(instanceId);
         }
+        
+        // Move to the next day
+        currentDate.setDate(currentDate.getDate() + 1);
       }
 
-      return parentEvent;
+      return await ctx.db.get(parentEventId);
     }
   },
 });

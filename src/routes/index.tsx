@@ -4,7 +4,7 @@ import { useMutation } from "convex/react";
 import { useSuspenseQuery, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { Authenticated, Unauthenticated } from "convex/react";
-import { Calendar, Plus, Users, RefreshCw } from "lucide-react";
+import { Calendar, Plus, Users, RefreshCw, ChevronLeft, ChevronRight } from "lucide-react";
 import { api } from "../../convex/_generated/api";
 import { useState, useEffect } from "react";
 import { Calendar as BigCalendar, dateFnsLocalizer, View } from "react-big-calendar";
@@ -194,8 +194,87 @@ function CalendarView({
     </div>
   );
 
+  const handleNavigate = (action: 'prev' | 'next' | 'today') => {
+    const newDate = new Date(currentDate);
+    
+    if (action === 'today') {
+      onNavigate(new Date());
+      return;
+    }
+    
+    switch (viewType) {
+      case 'day':
+        newDate.setDate(newDate.getDate() + (action === 'next' ? 1 : -1));
+        break;
+      case 'month':
+        newDate.setMonth(newDate.getMonth() + (action === 'next' ? 1 : -1));
+        break;
+      default: // week
+        newDate.setDate(newDate.getDate() + (action === 'next' ? 7 : -7));
+        break;
+    }
+    
+    onNavigate(newDate);
+  };
+
+  const formatDateDisplay = () => {
+    switch (viewType) {
+      case 'day':
+        return currentDate.toLocaleDateString('en-US', { 
+          weekday: 'long', 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric' 
+        });
+      case 'month':
+        return currentDate.toLocaleDateString('en-US', { 
+          year: 'numeric', 
+          month: 'long' 
+        });
+      default: { // week
+        const weekStart = new Date(currentDate);
+        weekStart.setDate(currentDate.getDate() - currentDate.getDay());
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekEnd.getDate() + 6);
+        return `${weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+      }
+    }
+  };
+
   return (
     <div className="bg-base-100 rounded-lg p-4 min-h-[600px]">
+      {/* Custom Navigation Header */}
+      <div className="flex justify-between items-center mb-4">
+        <div className="flex items-center gap-2">
+          <button 
+            className="btn btn-sm btn-circle"
+            onClick={() => handleNavigate('prev')}
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          
+          <button 
+            className="btn btn-sm"
+            onClick={() => handleNavigate('today')}
+          >
+            Return to Today
+          </button>
+          
+          <button 
+            className="btn btn-sm btn-circle"
+            onClick={() => handleNavigate('next')}
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+        
+        <h2 className="text-xl font-semibold">
+          {formatDateDisplay()}
+        </h2>
+        
+        <div></div> {/* Spacer for centering */}
+      </div>
+      
       <BigCalendar
         localizer={localizer}
         events={calendarEvents}
@@ -209,6 +288,8 @@ function CalendarView({
         onSelectSlot={onSelectSlot}
         selectable
         popup
+        toolbar={false} // Remove the built-in toolbar with duplicate buttons
+        showMultiDayTimes={true} // Show times for multi-day events
         components={{
           event: EventComponent,
         }}
@@ -326,52 +407,8 @@ function CreateEventModal({ currentUser, onClose }: { currentUser: any; onClose:
               required
             />
           </div>
-          
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="label">
-                <span className="label-text">Start Time</span>
-              </label>
-              <input
-                type="datetime-local"
-                className="input input-bordered w-full"
-                value={formData.startTime}
-                onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
-                required
-              />
-            </div>
-            
-            <div>
-              <label className="label">
-                <span className="label-text">End Time</span>
-              </label>
-              <input
-                type="datetime-local"
-                className="input input-bordered w-full"
-                value={formData.endTime}
-                onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
-                required
-              />
-            </div>
-          </div>
-          
-          <div>
-            <label className="label">
-              <span className="label-text">Assign to</span>
-            </label>
-            <select
-              className="select select-bordered w-full"
-              value={formData.assignedUserId}
-              onChange={(e) => setFormData({ ...formData, assignedUserId: e.target.value })}
-            >
-              {users.map((user) => (
-                <option key={user._id} value={user._id}>
-                  {user.name} ({user.role})
-                </option>
-              ))}
-            </select>
-          </div>
 
+          {/* Repeating Event Toggle - Moved Above Date/Time */}
           <div className="divider">Repeat Settings</div>
           
           <div className="form-control">
@@ -421,6 +458,55 @@ function CreateEventModal({ currentUser, onClose }: { currentUser: any; onClose:
               )}
             </div>
           )}
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="label">
+                <span className="label-text">
+                  {formData.isRepeating ? "Start Date & Time (Repeat Period Start)" : "Start Time"}
+                </span>
+              </label>
+              <input
+                type="datetime-local"
+                className="input input-bordered w-full"
+                value={formData.startTime}
+                onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
+                required
+              />
+            </div>
+            
+            <div>
+              <label className="label">
+                <span className="label-text">
+                  {formData.isRepeating ? "End Date & Time (Repeat Period End)" : "End Time"}
+                </span>
+              </label>
+              <input
+                type="datetime-local"
+                className="input input-bordered w-full"
+                value={formData.endTime}
+                onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
+                required
+              />
+            </div>
+          </div>
+          
+          <div>
+            <label className="label">
+              <span className="label-text">Assign to</span>
+            </label>
+            <select
+              className="select select-bordered w-full"
+              value={formData.assignedUserId}
+              onChange={(e) => setFormData({ ...formData, assignedUserId: e.target.value })}
+            >
+              {users.map((user) => (
+                <option key={user._id} value={user._id}>
+                  {user.name} ({user.role})
+                </option>
+              ))}
+            </select>
+          </div>
           
           <div className="modal-action">
             <button type="button" className="btn" onClick={onClose}>
