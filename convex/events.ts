@@ -350,3 +350,4 @@ export const deleteEvent = mutation({
     await ctx.db.delete(eventId);
   },
 });
+
