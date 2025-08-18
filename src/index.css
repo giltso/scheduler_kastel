@@ -33,7 +33,18 @@ body {
 }
 
 .rbc-today {
-  @apply bg-primary/10;
+  @apply bg-primary/20 border-primary/30;
+  border-width: 2px !important;
+  position: relative;
+}
+
+/* Today's date styling - responsive to theme */
+[data-theme="dark"] .rbc-today {
+  @apply bg-base-300/90 border-primary/40;
+}
+
+[data-theme="light"] .rbc-today {
+  @apply bg-base-200/70 border-primary/50;
 }
 
 .rbc-off-range-bg {
