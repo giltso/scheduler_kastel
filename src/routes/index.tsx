@@ -35,8 +35,8 @@ function HomePage() {
           <div className="flex justify-center mb-4">
             <Calendar className="w-16 h-16 text-primary" />
           </div>
-          <h1 className="text-4xl font-bold mb-4">Workplace Scheduler</h1>
-          <p className="text-lg mb-6">Sign in to manage your workplace schedule.</p>
+          <h1 className="text-4xl font-bold mb-4">LUZ</h1>
+          <p className="text-lg mb-6">Sign in to manage your schedule with LUZ.</p>
           <div className="mt-4">
             <SignInButton mode="modal">
               <button className="btn btn-primary btn-lg">Sign In</button>
@@ -77,7 +77,7 @@ function ScheduleApp() {
       <div className="mb-4 flex items-center gap-4">
         <div className="flex items-center gap-2">
           <Calendar className="w-8 h-8 text-primary" />
-          <h1 className="text-2xl font-bold">Workplace Scheduler</h1>
+          <h1 className="text-2xl font-bold">LUZ</h1>
         </div>
         <div className="ml-auto flex items-center gap-2">
           <Users className="w-5 h-5" />

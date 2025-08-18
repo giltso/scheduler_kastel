@@ -54,7 +54,7 @@ export const createEvent = mutation({
 
       return await ctx.db.get(eventId);
     } else {
-      // Create a parent event template for repeating events
+      // Create only the parent repeating event - instances will be generated for display
       const parentEventId = await ctx.db.insert("events", {
         title,
         description,
@@ -66,53 +66,6 @@ export const createEvent = mutation({
         isRepeating: true,
         repeatDays,
       });
-
-      // Generate recurring instances within the specified period
-      const startDate = new Date(startTime);
-      const endDate = new Date(endTime);
-      const eventStartTime = startDate.getTime();
-      const eventEndTime = endDate.getTime();
-      
-      // Calculate the duration of the original event (time between start and end on the same day)
-      const sameDay = new Date(startTime);
-      sameDay.setHours(endDate.getHours(), endDate.getMinutes(), endDate.getSeconds(), endDate.getMilliseconds());
-      const eventDuration = sameDay.getTime() - eventStartTime;
-      
-      const instances = [];
-      let currentDate = new Date(startDate);
-      
-      // Iterate through each day in the repeat period
-      while (currentDate <= endDate) {
-        const dayOfWeek = currentDate.getDay();
-        
-        // Check if this day is in the repeat days
-        if (repeatDays!.includes(dayOfWeek)) {
-          // Create an instance for this day with the same time as the original
-          const instanceDate = new Date(currentDate);
-          instanceDate.setHours(startDate.getHours(), startDate.getMinutes(), startDate.getSeconds(), startDate.getMilliseconds());
-          
-          const instanceStartTime = instanceDate.getTime();
-          const instanceEndTime = instanceStartTime + eventDuration;
-          
-          // Create the recurring instance
-          const instanceId = await ctx.db.insert("events", {
-            title,
-            description,
-            startTime: instanceStartTime,
-            endTime: instanceEndTime,
-            creatorId: currentUser._id,
-            assignedUserId,
-            status,
-            isRepeating: false, // Instances are not repeating themselves
-            parentEventId,
-          });
-          
-          instances.push(instanceId);
-        }
-        
-        // Move to the next day
-        currentDate.setDate(currentDate.getDate() + 1);
-      }
 
       return await ctx.db.get(parentEventId);
     }
@@ -172,16 +125,16 @@ export const getVisibleEvents = query({
       throw new ConvexError("User not found");
     }
 
-    // Get events in the date range
-    const allEvents = await ctx.db
-      .query("events")
-      .withIndex("by_startTime", (q) => 
-        q.gte("startTime", startDate).lt("startTime", endDate)
-      )
-      .collect();
+    // Get all events (both regular and repeating parent events)
+    const allEvents = await ctx.db.query("events").collect();
 
     // Filter based on user role and visibility rules
     const visibleEvents = allEvents.filter((event) => {
+      // Skip events that have a parentEventId (these were old instances)
+      if (event.parentEventId) {
+        return false;
+      }
+
       // Approved events are visible to everyone
       if (event.status === "approved") {
         return true;
@@ -197,9 +150,68 @@ export const getVisibleEvents = query({
       return false;
     });
 
+    // Generate display events (expand repeating events into instances)
+    const displayEvents = [];
+    
+    for (const event of visibleEvents) {
+      if (!event.isRepeating) {
+        // Regular event - only show if it's in the date range
+        if (event.startTime >= startDate && event.startTime < endDate) {
+          displayEvents.push(event);
+        }
+      } else {
+        // Repeating event - generate instances within the date range
+        const eventStartDate = new Date(event.startTime);
+        const eventEndDate = new Date(event.endTime);
+        
+        // Calculate the duration of the original event (time between start and end on the same day)
+        const sameDay = new Date(event.startTime);
+        sameDay.setHours(eventEndDate.getHours(), eventEndDate.getMinutes(), eventEndDate.getSeconds(), eventEndDate.getMilliseconds());
+        const eventDuration = sameDay.getTime() - event.startTime;
+        
+        // Find the overlap between the repeat period and the requested date range
+        const periodStart = Math.max(event.startTime, startDate);
+        const periodEnd = Math.min(event.endTime, endDate);
+        
+        if (periodStart < periodEnd) {
+          let currentDate = new Date(periodStart);
+          
+          // Iterate through each day in the overlap period
+          while (currentDate.getTime() < periodEnd) {
+            const dayOfWeek = currentDate.getDay();
+            
+            // Check if this day is in the repeat days
+            if (event.repeatDays && event.repeatDays.includes(dayOfWeek)) {
+              // Create an instance for this day with the same time as the original
+              const instanceDate = new Date(currentDate);
+              instanceDate.setHours(eventStartDate.getHours(), eventStartDate.getMinutes(), eventStartDate.getSeconds(), eventStartDate.getMilliseconds());
+              
+              const instanceStartTime = instanceDate.getTime();
+              const instanceEndTime = instanceStartTime + eventDuration;
+              
+              // Only include if the instance is within the requested range
+              if (instanceStartTime >= startDate && instanceStartTime < endDate) {
+                displayEvents.push({
+                  ...event,
+                  _id: `${event._id}_${instanceStartTime}`, // Unique ID for each instance
+                  startTime: instanceStartTime,
+                  endTime: instanceEndTime,
+                  isRepeating: false, // Display instances as non-repeating
+                  parentEventId: event._id,
+                });
+              }
+            }
+            
+            // Move to the next day
+            currentDate.setDate(currentDate.getDate() + 1);
+          }
+        }
+      }
+    }
+
     // Get user details for each event
     const eventsWithUsers = await Promise.all(
-      visibleEvents.map(async (event) => {
+      displayEvents.map(async (event) => {
         const [creator, assignedUser] = await Promise.all([
           ctx.db.get(event.creatorId),
           ctx.db.get(event.assignedUserId),
