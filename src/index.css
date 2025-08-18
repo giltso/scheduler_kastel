@@ -51,6 +51,15 @@ body {
   @apply bg-base-200;
 }
 
+/* Off-month days styling - responsive to theme */
+[data-theme="dark"] .rbc-off-range-bg {
+  @apply bg-base-300/30;
+}
+
+[data-theme="light"] .rbc-off-range-bg {
+  @apply bg-base-100/50;
+}
+
 .rbc-month-row {
   @apply border-base-300;
 }

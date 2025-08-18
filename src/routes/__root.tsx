@@ -117,7 +117,17 @@ function RootComponent() {
                           }}
                           onClick={() => setIsSidebarOpen(false)}
                         >
-                          Home
+                          Calendar
+                        </Link>
+                        <Link
+                          to="/approvals"
+                          className="btn btn-ghost"
+                          activeProps={{
+                            className: "btn btn-ghost btn-active",
+                          }}
+                          onClick={() => setIsSidebarOpen(false)}
+                        >
+                          Approvals
                         </Link>
                       </nav>
                     </div>
@@ -160,7 +170,19 @@ function RootComponent() {
                             }}
                             className="flex items-center p-2"
                           >
-                            Home
+                            Calendar
+                          </Link>
+                        </li>
+                        <li>
+                          <Link
+                            to="/approvals"
+                            onClick={() => setIsSidebarOpen(false)}
+                            activeProps={{
+                              className: "active",
+                            }}
+                            className="flex items-center p-2"
+                          >
+                            Approvals
                           </Link>
                         </li>
                       </ul>

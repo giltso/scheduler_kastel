@@ -271,6 +271,82 @@ export const getPendingEvents = query({
   },
 });
 
+export const getUserPendingEvents = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError("Not authenticated");
+    }
+
+    const currentUser = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+
+    if (!currentUser) {
+      throw new ConvexError("User not found");
+    }
+
+    const userPendingEvents = await ctx.db
+      .query("events")
+      .withIndex("by_status", (q) => q.eq("status", "pending"))
+      .filter((q) => q.eq(q.field("creatorId"), currentUser._id))
+      .collect();
+
+    // Get user details for each event
+    const eventsWithUsers = await Promise.all(
+      userPendingEvents.map(async (event) => {
+        const [creator, assignedUser] = await Promise.all([
+          ctx.db.get(event.creatorId),
+          ctx.db.get(event.assignedUserId),
+        ]);
+        
+        return {
+          ...event,
+          creator: creator ? { name: creator.name, role: creator.role } : null,
+          assignedUser: assignedUser ? { name: assignedUser.name, role: assignedUser.role } : null,
+        };
+      })
+    );
+
+    return eventsWithUsers;
+  },
+});
+
+export const rejectEvent = mutation({
+  args: {
+    eventId: v.id("events"),
+  },
+  handler: async (ctx, { eventId }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError("Not authenticated");
+    }
+
+    const currentUser = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+
+    if (!currentUser || currentUser.role !== "manager") {
+      throw new ConvexError("Only managers can reject events");
+    }
+
+    const event = await ctx.db.get(eventId);
+    if (!event) {
+      throw new ConvexError("Event not found");
+    }
+
+    if (event.status !== "pending") {
+      throw new ConvexError("Only pending events can be rejected");
+    }
+
+    await ctx.db.patch(eventId, { status: "rejected" });
+    return await ctx.db.get(eventId);
+  },
+});
+
 export const updateEvent = mutation({
   args: {
     eventId: v.id("events"),

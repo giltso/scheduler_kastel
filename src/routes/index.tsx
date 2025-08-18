@@ -127,8 +127,6 @@ function ScheduleApp() {
           onNavigate={setCurrentDate}
           onSelectSlot={(_slotInfo) => setShowCreateModal(true)}
         />
-        
-        {currentUser.role === "manager" && <PendingApprovals />}
 
         {showCreateModal && (
           <CreateEventModal 
@@ -305,32 +303,6 @@ function CalendarView({
   );
 }
 
-function PendingApprovals() {
-  const pendingEventsQuery = convexQuery(api.events.getPendingEvents, {});
-  const { data: pendingEvents } = useSuspenseQuery(pendingEventsQuery);
-
-  if (pendingEvents.length === 0) {
-    return null;
-  }
-
-  return (
-    <div className="mt-8">
-      <h3 className="text-xl font-bold mb-4">Pending Approvals ({pendingEvents.length})</h3>
-      <div className="space-y-2">
-        {pendingEvents.map((event) => (
-          <div key={event._id} className="alert">
-            <div>
-              <h4 className="font-bold">{event.title}</h4>
-              <p className="text-sm">
-                Created by {event.creator?.name} for {event.assignedUser?.name}
-              </p>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 function CreateEventModal({ currentUser, onClose }: { currentUser: any; onClose: () => void }) {
   const usersQuery = convexQuery(api.users.listUsers, {});
