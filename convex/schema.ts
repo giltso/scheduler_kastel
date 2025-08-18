@@ -19,9 +19,14 @@ export default defineSchema({
     creatorId: v.id("users"),
     assignedUserId: v.id("users"),
     status: v.union(v.literal("pending"), v.literal("approved")),
+    // Repeating event fields
+    isRepeating: v.optional(v.boolean()),
+    repeatDays: v.optional(v.array(v.number())), // 0=Sunday, 1=Monday, etc.
+    parentEventId: v.optional(v.id("events")), // For individual instances of repeating events
   })
     .index("by_creator", ["creatorId"])
     .index("by_assignedUser", ["assignedUserId"])
     .index("by_status", ["status"])
-    .index("by_startTime", ["startTime"]),
+    .index("by_startTime", ["startTime"])
+    .index("by_parentEvent", ["parentEventId"]),
 });

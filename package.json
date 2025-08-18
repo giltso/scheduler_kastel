@@ -20,8 +20,10 @@
     "@tanstack/react-router": "^1.119.0",
     "@tanstack/react-router-devtools": "^1.119.1",
     "convex": "^1.23.0",
+    "date-fns": "^4.1.0",
     "lucide-react": "^0.511.0",
     "react": "^19.0.0",
+    "react-big-calendar": "^1.19.4",
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
@@ -31,6 +33,7 @@
     "@tanstack/router-plugin": "^1.119.0",
     "@types/node": "^22.13.10",
     "@types/react": "^19.0.10",
+    "@types/react-big-calendar": "^1.16.2",
     "@types/react-dom": "^19.0.4",
     "@vitejs/plugin-react": "^4.3.4",
     "daisyui": "^5.0.35",

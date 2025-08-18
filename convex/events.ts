@@ -9,8 +9,10 @@ export const createEvent = mutation({
     startTime: v.number(),
     endTime: v.number(),
     assignedUserId: v.id("users"),
+    isRepeating: v.optional(v.boolean()),
+    repeatDays: v.optional(v.array(v.number())),
   },
-  handler: async (ctx, { title, description, startTime, endTime, assignedUserId }) => {
+  handler: async (ctx, { title, description, startTime, endTime, assignedUserId, isRepeating, repeatDays }) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
       throw new ConvexError("Not authenticated");
@@ -29,20 +31,81 @@ export const createEvent = mutation({
       throw new ConvexError("Start time must be before end time");
     }
 
+    // Validate repeating event data
+    if (isRepeating && (!repeatDays || repeatDays.length === 0)) {
+      throw new ConvexError("Repeating events must have at least one repeat day selected");
+    }
+
     // Managers create approved events, default users create pending events
     const status = currentUser.role === "manager" ? "approved" : "pending";
 
-    const eventId = await ctx.db.insert("events", {
-      title,
-      description,
-      startTime,
-      endTime,
-      creatorId: currentUser._id,
-      assignedUserId,
-      status,
-    });
+    if (!isRepeating) {
+      // Create a single non-repeating event
+      const eventId = await ctx.db.insert("events", {
+        title,
+        description,
+        startTime,
+        endTime,
+        creatorId: currentUser._id,
+        assignedUserId,
+        status,
+        isRepeating: false,
+      });
 
-    return await ctx.db.get(eventId);
+      return await ctx.db.get(eventId);
+    } else {
+      // Create a parent event template for repeating events
+      const parentEventId = await ctx.db.insert("events", {
+        title,
+        description,
+        startTime,
+        endTime,
+        creatorId: currentUser._id,
+        assignedUserId,
+        status,
+        isRepeating: true,
+        repeatDays,
+      });
+
+      // Generate recurring instances for the next 12 weeks
+      const duration = endTime - startTime;
+      const parentEvent = await ctx.db.get(parentEventId);
+      const instances = [];
+      
+      for (let weekOffset = 0; weekOffset < 12; weekOffset++) {
+        for (const dayOfWeek of repeatDays!) {
+          // Calculate the start time for this instance
+          const eventDate = new Date(startTime);
+          const currentDayOfWeek = eventDate.getDay();
+          
+          // Calculate days to add to get to the target day of week
+          let daysToAdd = dayOfWeek - currentDayOfWeek;
+          if (daysToAdd < 0) daysToAdd += 7; // Next week if we've passed this day
+          
+          daysToAdd += (weekOffset * 7); // Add weeks
+          
+          const instanceStartTime = startTime + (daysToAdd * 24 * 60 * 60 * 1000);
+          const instanceEndTime = instanceStartTime + duration;
+          
+          // Create the recurring instance
+          const instanceId = await ctx.db.insert("events", {
+            title,
+            description,
+            startTime: instanceStartTime,
+            endTime: instanceEndTime,
+            creatorId: currentUser._id,
+            assignedUserId,
+            status,
+            isRepeating: false, // Instances are not repeating themselves
+            parentEventId,
+          });
+          
+          instances.push(instanceId);
+        }
+      }
+
+      return parentEvent;
+    }
   },
 });
 
@@ -194,6 +257,8 @@ export const updateEvent = mutation({
     startTime: v.optional(v.number()),
     endTime: v.optional(v.number()),
     assignedUserId: v.optional(v.id("users")),
+    isRepeating: v.optional(v.boolean()),
+    repeatDays: v.optional(v.array(v.number())),
   },
   handler: async (ctx, { eventId, ...updates }) => {
     const identity = await ctx.auth.getUserIdentity();
