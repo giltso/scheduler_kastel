@@ -46,50 +46,8 @@ function HomePage() {
       </Unauthenticated>
 
       <Authenticated>
-        <div className="p-4 bg-green-100 text-green-800 rounded mb-4">
-          <h2 className="text-xl font-bold">🎉 Authentication Working!</h2>
-          <p>Now let's load the calendar...</p>
-        </div>
-        <SimpleScheduleApp />
+        <ScheduleApp />
       </Authenticated>
-    </div>
-  );
-}
-
-function SimpleScheduleApp() {
-  const ensureUser = useMutation(api.users.ensureUser);
-
-  useEffect(() => {
-    void ensureUser();
-  }, [ensureUser]);
-
-  return (
-    <div className="w-full">
-      <div className="mb-4 flex items-center gap-4">
-        <div className="flex items-center gap-2">
-          <Calendar className="w-8 h-8 text-primary" />
-          <h1 className="text-2xl font-bold">Workplace Scheduler</h1>
-        </div>
-      </div>
-      
-      <div className="flex gap-2 mb-6">
-        <div className="join">
-          <button className="btn join-item btn-active">Day</button>
-          <button className="btn join-item">Week</button>
-          <button className="btn join-item">Month</button>
-        </div>
-        <button className="btn btn-primary">
-          <Plus className="w-4 h-4 mr-2" />
-          New Event
-        </button>
-      </div>
-
-      <div className="bg-base-200 rounded-lg p-8 text-center">
-        <Calendar className="w-16 h-16 mx-auto mb-4 text-primary" />
-        <h3 className="text-xl font-bold mb-2">Calendar View</h3>
-        <p className="text-base-content/70">Calendar and repeating events functionality implemented!</p>
-        <p className="text-sm mt-2">Loading full calendar interface...</p>
-      </div>
     </div>
   );
 }
