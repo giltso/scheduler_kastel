@@ -21,7 +21,7 @@ import {
   useMutation,
 } from "convex/react";
 import { ConvexProviderWithClerk } from "convex/react-clerk";
-import { Menu } from "lucide-react";
+import { Menu, Sun, Moon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../../convex/_generated/api";
 
@@ -35,10 +35,27 @@ export const Route = createRootRouteWithContext<{
 function RootComponent() {
   const { queryClient, convexClient: convex } = Route.useRouteContext();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [theme, setTheme] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('theme') || 'dark';
+    }
+    return 'dark';
+  });
 
   const toggleSidebar = () => {
     setIsSidebarOpen(!isSidebarOpen);
   };
+
+  const toggleTheme = () => {
+    const newTheme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(newTheme);
+    localStorage.setItem('theme', newTheme);
+    document.documentElement.setAttribute('data-theme', newTheme);
+  };
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
 
   return (
     <ClerkProvider
@@ -91,6 +108,13 @@ function RootComponent() {
                       </nav>
                     </div>
                     <div className="navbar-end">
+                      <button
+                        onClick={toggleTheme}
+                        className="btn btn-ghost btn-square mr-2"
+                        title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+                      >
+                        {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+                      </button>
                       <UserButton />
                     </div>
                   </header>
@@ -127,7 +151,14 @@ function RootComponent() {
                         </li>
                       </ul>
                     </div>
-                    <div className="mt-auto py-4 border-t border-base-300 flex justify-center items-center">
+                    <div className="mt-auto py-4 border-t border-base-300 flex justify-center items-center gap-2">
+                      <button
+                        onClick={toggleTheme}
+                        className="btn btn-ghost btn-square"
+                        title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+                      >
+                        {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+                      </button>
                       <UserButton />
                     </div>
                   </div>
@@ -141,6 +172,13 @@ function RootComponent() {
                     <h1 className="font-semibold">LUZ</h1>
                   </div>
                   <div className="navbar-end">
+                    <button
+                      onClick={toggleTheme}
+                      className="btn btn-ghost btn-square mr-2"
+                      title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+                    >
+                      {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+                    </button>
                     <SignInButton mode="modal">
                       <button className="btn btn-primary btn-sm">
                         Sign in
