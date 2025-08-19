@@ -357,6 +357,7 @@ export const updateEvent = mutation({
     assignedUserId: v.optional(v.id("users")),
     isRepeating: v.optional(v.boolean()),
     repeatDays: v.optional(v.array(v.number())),
+    status: v.optional(v.union(v.literal("pending"), v.literal("approved"), v.literal("rejected"))),
   },
   handler: async (ctx, { eventId, ...updates }) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -389,7 +390,13 @@ export const updateEvent = mutation({
       }
     }
 
-    await ctx.db.patch(eventId, updates);
+    // If the user is not a manager and is editing their own event, set status to pending
+    const finalUpdates: typeof updates & { status?: "pending" | "approved" | "rejected" } = { ...updates };
+    if (currentUser.role !== "manager" && event.creatorId === currentUser._id) {
+      finalUpdates.status = "pending";
+    }
+
+    await ctx.db.patch(eventId, finalUpdates);
     return await ctx.db.get(eventId);
   },
 });

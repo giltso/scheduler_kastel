@@ -4,7 +4,7 @@ import { useMutation } from "convex/react";
 import { useSuspenseQuery, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { Authenticated, Unauthenticated } from "convex/react";
-import { Calendar, Plus, Users, RefreshCw, ChevronLeft, ChevronRight } from "lucide-react";
+import { Calendar, Plus, Users, RefreshCw, ChevronLeft, ChevronRight, Edit } from "lucide-react";
 import { api } from "../../convex/_generated/api";
 import { useState, useEffect } from "react";
 import { Calendar as BigCalendar, dateFnsLocalizer, View } from "react-big-calendar";
@@ -57,6 +57,7 @@ function ScheduleApp() {
   const [viewType, setViewType] = useState<ViewType>("week");
   const [currentDate, setCurrentDate] = useState(new Date());
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<any>(null);
   const ensureUser = useMutation(api.users.ensureUser);
 
   useEffect(() => {
@@ -126,12 +127,21 @@ function ScheduleApp() {
           currentDate={currentDate}
           onNavigate={setCurrentDate}
           onSelectSlot={(_slotInfo) => setShowCreateModal(true)}
+          onSelectEvent={(event) => setEditingEvent(event)}
         />
 
         {showCreateModal && (
           <CreateEventModal 
             currentUser={currentUser}
             onClose={() => setShowCreateModal(false)}
+          />
+        )}
+
+        {editingEvent && (
+          <EditEventModal 
+            event={editingEvent}
+            currentUser={currentUser}
+            onClose={() => setEditingEvent(null)}
           />
         )}
       </div>
@@ -144,13 +154,15 @@ function CalendarView({
   viewType, 
   currentDate, 
   onNavigate,
-  onSelectSlot 
+  onSelectSlot,
+  onSelectEvent
 }: {
   currentUser: any;
   viewType: ViewType;
   currentDate: Date;
   onNavigate: (date: Date) => void;
   onSelectSlot: (slotInfo: any) => void;
+  onSelectEvent: (event: any) => void;
 }) {
   // Get a wide date range to ensure we have all visible events for the calendar
   const startDate = new Date(currentDate);
@@ -185,7 +197,13 @@ function CalendarView({
     start: new Date(event.startTime),
     end: new Date(event.endTime),
     resource: {
-      ...event,
+      _id: event._id,
+      description: event.description,
+      creatorId: event.creatorId,
+      assignedUserId: event.assignedUserId,
+      isRepeating: event.isRepeating,
+      repeatDays: event.repeatDays,
+      status: event.status,
       isPending: event.status === "pending",
       canApprove: event.status === "pending" && currentUser.role === "manager",
     },
@@ -294,6 +312,13 @@ function CalendarView({
         date={currentDate}
         onNavigate={onNavigate}
         onSelectSlot={onSelectSlot}
+        onSelectEvent={(event) => {
+          // Only allow editing if user is creator or manager
+          const canEdit = event.resource.creatorId === currentUser._id || currentUser.role === "manager";
+          if (canEdit) {
+            onSelectEvent(event);
+          }
+        }}
         selectable
         popup
         toolbar={false} // Remove the built-in toolbar with duplicate buttons
@@ -306,6 +331,7 @@ function CalendarView({
           style: {
             backgroundColor: event.resource.isPending ? "#fbbf24" : "#3b82f6",
             borderColor: event.resource.isPending ? "#f59e0b" : "#2563eb",
+            cursor: (event.resource.creatorId === currentUser._id || currentUser.role === "manager") ? "pointer" : "default",
           },
         })}
       />
@@ -500,6 +526,214 @@ function CreateEventModal({ currentUser, onClose }: { currentUser: any; onClose:
               disabled={formData.isRepeating && formData.repeatDays.length === 0}
             >
               Create Event
+            </button>
+          </div>
+        </form>
+      </div>
+    </dialog>
+  );
+}
+
+function EditEventModal({ event, currentUser, onClose }: { event: any; currentUser: any; onClose: () => void }) {
+  const usersQuery = convexQuery(api.users.listUsers, {});
+  const { data: users } = useSuspenseQuery(usersQuery);
+  const updateEvent = useMutation(api.events.updateEvent);
+  
+  const [formData, setFormData] = useState({
+    title: event.title || "",
+    description: event.resource.description || "",
+    startTime: new Date(event.start).toISOString().slice(0, -1), // Remove Z for datetime-local
+    endTime: new Date(event.end).toISOString().slice(0, -1),
+    assignedUserId: event.resource.assignedUserId || currentUser._id,
+    isRepeating: event.resource.isRepeating || false,
+    repeatDays: event.resource.repeatDays || [],
+  });
+
+  const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+  const toggleRepeatDay = (dayIndex: number) => {
+    setFormData(prev => ({
+      ...prev,
+      repeatDays: prev.repeatDays.includes(dayIndex)
+        ? prev.repeatDays.filter((d: number) => d !== dayIndex)
+        : [...prev.repeatDays, dayIndex].sort()
+    }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    try {
+      await updateEvent({
+        eventId: event.resource._id,
+        title: formData.title,
+        description: formData.description,
+        startTime: new Date(formData.startTime).getTime(),
+        endTime: new Date(formData.endTime).getTime(),
+        assignedUserId: formData.assignedUserId,
+        isRepeating: formData.isRepeating,
+        repeatDays: formData.isRepeating ? formData.repeatDays : undefined,
+      });
+      onClose();
+    } catch (error) {
+      console.error("Failed to update event:", error);
+    }
+  };
+
+  const canEdit = event.resource.creatorId === currentUser._id || currentUser.role === "manager";
+  if (!canEdit) {
+    return null;
+  }
+
+  const isNonManagerEditingOwn = currentUser.role !== "manager" && event.resource.creatorId === currentUser._id;
+
+  return (
+    <dialog open className="modal">
+      <div className="modal-box">
+        <div className="flex items-center gap-2 mb-4">
+          <Edit className="w-5 h-5" />
+          <h3 className="font-bold text-lg">Edit Event</h3>
+          {isNonManagerEditingOwn && (
+            <div className="badge badge-warning">Will require approval</div>
+          )}
+        </div>
+        
+        <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
+          <div>
+            <label className="label">
+              <span className="label-text">Title</span>
+            </label>
+            <input
+              type="text"
+              className="input input-bordered w-full"
+              value={formData.title}
+              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              required
+            />
+          </div>
+          
+          <div>
+            <label className="label">
+              <span className="label-text">Description</span>
+            </label>
+            <textarea
+              className="textarea textarea-bordered w-full"
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              required
+            />
+          </div>
+
+          {/* Repeating Event Toggle */}
+          <div className="divider">Repeat Settings</div>
+          
+          <div className="form-control">
+            <label className="label cursor-pointer">
+              <span className="label-text">
+                <RefreshCw className="w-4 h-4 mr-2 inline" />
+                Repeating Event
+              </span>
+              <input
+                type="checkbox"
+                className="toggle toggle-primary"
+                checked={formData.isRepeating}
+                onChange={(e) => setFormData({ 
+                  ...formData, 
+                  isRepeating: e.target.checked,
+                  repeatDays: e.target.checked ? formData.repeatDays : []
+                })}
+              />
+            </label>
+          </div>
+
+          {formData.isRepeating && (
+            <div>
+              <label className="label">
+                <span className="label-text">Repeat on days</span>
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {dayNames.map((day, index) => (
+                  <button
+                    key={index}
+                    type="button"
+                    className={`btn btn-sm ${
+                      formData.repeatDays.includes(index) 
+                        ? "btn-primary" 
+                        : "btn-outline"
+                    }`}
+                    onClick={() => toggleRepeatDay(index)}
+                  >
+                    {day.slice(0, 3)}
+                  </button>
+                ))}
+              </div>
+              {formData.repeatDays.length === 0 && (
+                <p className="text-sm text-error mt-1">
+                  Please select at least one day for repeating events
+                </p>
+              )}
+            </div>
+          )}
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="label">
+                <span className="label-text">
+                  {formData.isRepeating ? "Start Date & Time (Repeat Period Start)" : "Start Time"}
+                </span>
+              </label>
+              <input
+                type="datetime-local"
+                className="input input-bordered w-full"
+                value={formData.startTime}
+                onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
+                required
+              />
+            </div>
+            
+            <div>
+              <label className="label">
+                <span className="label-text">
+                  {formData.isRepeating ? "End Date & Time (Repeat Period End)" : "End Time"}
+                </span>
+              </label>
+              <input
+                type="datetime-local"
+                className="input input-bordered w-full"
+                value={formData.endTime}
+                onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
+                required
+              />
+            </div>
+          </div>
+          
+          <div>
+            <label className="label">
+              <span className="label-text">Assign to</span>
+            </label>
+            <select
+              className="select select-bordered w-full"
+              value={formData.assignedUserId}
+              onChange={(e) => setFormData({ ...formData, assignedUserId: e.target.value })}
+            >
+              {users.map((user) => (
+                <option key={user._id} value={user._id}>
+                  {user.name} ({user.role})
+                </option>
+              ))}
+            </select>
+          </div>
+          
+          <div className="modal-action">
+            <button type="button" className="btn" onClick={onClose}>
+              Cancel
+            </button>
+            <button 
+              type="submit" 
+              className="btn btn-primary"
+              disabled={formData.isRepeating && formData.repeatDays.length === 0}
+            >
+              Update Event
             </button>
           </div>
         </form>
