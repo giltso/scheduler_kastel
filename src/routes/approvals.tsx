@@ -57,7 +57,7 @@ function ApprovalsApp() {
   );
 }
 
-function UserApprovalsView({ currentUser }: { currentUser: any }) {
+function UserApprovalsView({ currentUser: _ }: { currentUser: any }) {
   const pendingEventsQuery = convexQuery(api.events.getUserPendingEvents, {});
   const { data: pendingEvents, error } = useQuery(pendingEventsQuery);
 
@@ -137,7 +137,7 @@ function ManagerApprovalsView() {
   const approveEvent = useMutation(api.events.approveEvent);
   const rejectEvent = useMutation(api.events.rejectEvent);
 
-  const handleApprove = async (eventId: string) => {
+  const handleApprove = async (eventId: any) => {
     try {
       await approveEvent({ eventId });
     } catch (error) {
@@ -145,7 +145,7 @@ function ManagerApprovalsView() {
     }
   };
 
-  const handleReject = async (eventId: string) => {
+  const handleReject = async (eventId: any) => {
     try {
       await rejectEvent({ eventId });
     } catch (error) {
@@ -202,14 +202,14 @@ function ManagerApprovalsView() {
                   <div className="flex gap-2">
                     <button
                       className="btn btn-success btn-sm"
-                      onClick={() => handleApprove(event._id)}
+                      onClick={() => void handleApprove(event._id)}
                     >
                       <CheckCircle className="w-4 h-4" />
                       Approve
                     </button>
                     <button
                       className="btn btn-error btn-sm"
-                      onClick={() => handleReject(event._id)}
+                      onClick={() => void handleReject(event._id)}
                     >
                       <XCircle className="w-4 h-4" />
                       Reject

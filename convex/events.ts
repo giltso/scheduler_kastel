@@ -174,6 +174,7 @@ export const getVisibleEvents = query({
         const periodEnd = Math.min(event.endTime, endDate);
         
         if (periodStart < periodEnd) {
+          // eslint-disable-next-line prefer-const
           let currentDate = new Date(periodStart);
           
           // Iterate through each day in the overlap period
