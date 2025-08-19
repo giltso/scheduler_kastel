@@ -18,7 +18,7 @@ export default defineSchema({
     endTime: v.number(),
     creatorId: v.id("users"),
     assignedUserId: v.id("users"),
-    status: v.union(v.literal("pending"), v.literal("approved")),
+    status: v.union(v.literal("pending"), v.literal("approved"), v.literal("rejected")),
     // Repeating event fields
     isRepeating: v.optional(v.boolean()),
     repeatDays: v.optional(v.array(v.number())), // 0=Sunday, 1=Monday, etc.

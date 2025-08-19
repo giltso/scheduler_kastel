@@ -165,8 +165,18 @@ function CalendarView({
     startDate: startDate.getTime(),
     endDate: endDate.getTime(),
   });
-  const { data: events } = useSuspenseQuery(eventsQuery);
+  const { data: events, isLoading: eventsLoading } = useQuery(eventsQuery);
 
+  if (eventsLoading || !events) {
+    return (
+      <div className="bg-base-100 rounded-lg p-4 min-h-[600px] flex items-center justify-center">
+        <div className="flex items-center gap-2">
+          <div className="loading loading-spinner loading-lg"></div>
+          <span className="ml-2">Loading calendar...</span>
+        </div>
+      </div>
+    );
+  }
 
   // Convert events to react-big-calendar format
   const calendarEvents = events.map((event) => ({
